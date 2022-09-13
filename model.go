@@ -7,11 +7,11 @@ type User struct {
 	Name     string
 	Username string
 	Password string `json:"-"`
+	Books    []Book `gorm:"foreignKey:AuthorID"`
 }
 
 type Book struct {
 	gorm.Model
 	Name     string
 	AuthorID uint
-	Author   User
 }

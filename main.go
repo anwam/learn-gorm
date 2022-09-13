@@ -17,6 +17,11 @@ type CreateUserDTO struct {
 	Password string `json:"password"`
 }
 
+type CreateBookDTO struct {
+	Name     string `json:"name"`
+	AuthorID *uint  `json:"authorId,omitempty"`
+}
+
 func main() {
 	fmt.Println("Hello, Gorm")
 	dsn := "host=localhost user=postgres password=postgrespw dbname=learn_gorm port=55000 sslmode=disable TimeZone=Asia/Bangkok"
@@ -29,11 +34,16 @@ func main() {
 
 	e := echo.New()
 	e.Use(middleware.Recover())
-	e.GET("/users", func(c echo.Context) error {
+
+	e.GET("/user/:id", func(c echo.Context) error {
 		ctx := c.Request().Context()
-		users := make([]User, 0)
-		db.WithContext(ctx).Find(&users)
-		return c.JSON(200, &users)
+		id := c.Param("id")
+		user := new(User)
+
+		if result := db.WithContext(ctx).Joins("Books").Find(&user, id); result.Error != nil {
+			e.Logger.Error(result.Error)
+		}
+		return c.JSON(200, &user)
 	})
 
 	e.POST("/migrate", func(c echo.Context) error {
@@ -52,6 +62,7 @@ func main() {
 		})
 
 	})
+
 	e.POST("/user", func(c echo.Context) error {
 		fmt.Println("creating user...")
 		ctx := c.Request().Context()
@@ -71,7 +82,27 @@ func main() {
 		return c.JSON(201, user)
 	})
 
+	e.POST("/book", func(c echo.Context) error {
+		ctx := c.Request().Context()
+		createBookDto := new(CreateBookDTO)
+		if err := c.Bind(createBookDto); err != nil {
+			return c.JSON(400, err)
+		}
+		book := &Book{
+			Name: createBookDto.Name,
+		}
+		if createBookDto.AuthorID != nil {
+			book.AuthorID = *createBookDto.AuthorID
+		}
+
+		if result := db.WithContext(ctx).Create(book); result.Error != nil {
+			e.Logger.Error(err)
+		}
+		return c.JSON(201, book)
+	})
+
 	e.Logger.Fatal(e.Start(":3300"))
+
 }
 
 func hashPassword(password string) (string, error) {
